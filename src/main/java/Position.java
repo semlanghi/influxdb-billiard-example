@@ -43,6 +43,10 @@ public class Position {
         return velVersor;
     }
 
+    public long getTimestamp() {
+        return tsLong;
+    }
+
     public void impactWall(String wall){
         velVersor.impactWall(wall);
     }
@@ -53,7 +57,7 @@ public class Position {
 
         this.x = (this.x + velScalar * velVersor.getX()*deltaTime);
         this.y = (this.y + velScalar * velVersor.getY()*deltaTime);
-        velScalar = (float) (velScalar - (GameSimulation.MAX_STRENGTH/10)*deltaTime);
+        velScalar = (float) (velScalar - (Game.MAX_STRENGTH/15)*deltaTime);
         if (velScalar<1){
             velScalar = 0.0f;
             velVersor.stop();
