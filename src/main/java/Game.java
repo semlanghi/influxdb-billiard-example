@@ -1,3 +1,9 @@
+import com.influxdb.client.domain.WritePrecision;
+import com.influxdb.client.write.Point;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Random;
 
 public class Game {
@@ -8,19 +14,25 @@ public class Game {
     public static final float MAX_STRENGTH = 30f;
     private Position[] positions;
     private Table table;
-    private ClientWrapper wrapper;
+    private BilliardDataProducer wrapper;
+    private FileWriter groundTruthFile;
 
-    private Game(Position[] positions, Table table) {
+    private Game(Position[] positions, Table table, BilliardDataProducer dataProducer) {
         this.table = table;
         this.positions = positions;
-        this.wrapper = new ClientWrapper();
+        this.wrapper = dataProducer;
+        try {
+            this.groundTruthFile = new FileWriter("/Users/samuelelanghi/Documents/projects/influxdb-billiard-example/src/main/resources/ground-truth-table-1.txt");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    public static Game initialize(Table table, int minIdBall, int maxIdBall){
+    public static Game initialize(Table table, int minIdBall, BilliardDataProducer producer){
 
 
         Ball[] balls = new Ball[15];
-        String[] colors = {"solid_yellow", "yellow_stripe", "solid_black", "solid_maroon", "solid_green", "solid_orange", "solid_purple", "solid_red", "solid_blue", "solid_yellow”, “blue_stripe", "red_stripe", "purple_stripe", "orange_stripe", "green_stripe", "maroon_stripe"};
+        String[] colors = {"solid_yellow", "yellow_stripe", "solid_black", "solid_maroon", "solid_green", "solid_orange", "solid_purple", "solid_red", "solid_blue", "solid_yellow", "blue_stripe", "red_stripe", "purple_stripe", "orange_stripe", "green_stripe", "maroon_stripe"};
         Position[] positions = new Position[15];
 
         Random randomPosX = new Random(112313214L);
@@ -32,7 +44,7 @@ public class Game {
             System.out.println(positions[j]);
         }
 
-        return new Game(positions, table);
+        return new Game(positions, table, producer);
     }
 
     public void move(int ball, int target, float strength){
@@ -57,7 +69,12 @@ public class Game {
 
         positions[ballNorm].push(new Versor(xTmp/denom, yTmp/denom), strength);
 
-        System.out.println("pushing ball " + positions[ballNorm].getBall().ballId +" on table " + positions[ballNorm].getTable().tableId);
+        try {
+            wrapper.writeTurn(positions[ballNorm].getBall(), positions[ballNorm].getTable(), positions[ballNorm].getTimestamp());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
 
         boolean allStopped = false;
         while(!allStopped) {
@@ -88,39 +105,31 @@ public class Game {
 
 
             for (int k = 0; k < positions.length; k++) {
-                wrapper.writePosition(positions[k]);
+                try {
+                    wrapper.writePosition(positions[k]);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 if(positions[k].isBallMoving())
                     allStopped = false;
             }
         }
     }
 
-    public void displaySituation(){
-        for (int i = 0; i < positions.length; i++) {
-            System.out.println(positions[i]);
-        }
-    }
-
     public void randomSym() {
         Random randomPush  = new Random(42L);
 
-        for (int move = 0; move < 10; move++) {
+        for (int move = 0; move < 100; move++) {
             int ball = randomPush.nextInt(0,15);
             int target = randomPush.nextInt(0,15);
             while (target == ball)
                 target = randomPush.nextInt(0,15);
 
-            System.out.println("targeting ball "+target);
-
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-
-//            float xTmp = (float) Math.cos(Math.toRadians(randomPush.nextDouble(360.0)));
-//            float yTmp = (float) Math.sin(Math.toRadians(randomPush.nextDouble(360.0)));
+//            try {
+//                Thread.sleep(5000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
 
             float xTmp = positions[target].getX() - positions[ball].getX();
             float yTmp = positions[target].getY() - positions[ball].getY();
@@ -129,7 +138,11 @@ public class Game {
             float strength = randomPush.nextFloat(MAX_STRENGTH);
             positions[ball].push(new Versor(xTmp/denom, yTmp/denom), strength);
 
-            System.out.println("pushing ball " + positions[ball].getBall().ballId +" on table " + positions[ball].getTable().tableId);
+            try {
+                wrapper.writeTurn(positions[ball].getBall(), positions[ball].getTable(), positions[ball].getTimestamp());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
             boolean allStopped = false;
             while(!allStopped) {
@@ -142,10 +155,30 @@ public class Game {
                     if(!wallX.equals("empty")){
                         positions[j].impactWall(wallX);
                         System.out.println("Impact " + wallX + " Wall!");
+                        Point point = Point.measurement("collision")
+                                .addField("object1", positions[j].getBall().color)
+                                .addField("object2", wallX)
+                                .time(positions[j].getTimestamp(), WritePrecision.MS);
+                        try {
+                            groundTruthFile.write(point.toLineProtocol()+"\n");
+                            groundTruthFile.flush();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                     if(!wallY.equals("empty")){
                         positions[j].impactWall(wallY);
                         System.out.println("Impact " + wallY + " Wall!");
+                        Point point = Point.measurement("collision")
+                                .addField("object1", positions[j].getBall().color)
+                                .addField("object2", wallY)
+                                .time(positions[j].getTimestamp(), WritePrecision.MS);
+                        try {
+                            groundTruthFile.write(point.toLineProtocol()+"\n");
+                            groundTruthFile.flush();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
 
                     if(positions[j].isBallMoving())
@@ -153,6 +186,16 @@ public class Game {
                             if(positions[j].distance(positions[k])<COLLISION_THRESHOLD && j != k && (!positions[k].isBallMoving() || positions[k].getVelVersor().incident(positions[j].getVelVersor()))){
                                 positions[j].impactAnotherBall(positions[k]);
                                 System.out.println("Impact Ball " + positions[k].getBall().ballId + "!");
+                                Point point = Point.measurement("collision")
+                                        .addField("object1", positions[j].getBall().color)
+                                        .addField("object2", positions[k].getBall().color)
+                                        .time(positions[j].getTimestamp(), WritePrecision.MS);
+                                try {
+                                    groundTruthFile.write(point.toLineProtocol()+"\n");
+                                    groundTruthFile.flush();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
                             }
                         }
                 }
@@ -160,7 +203,11 @@ public class Game {
 
 
                 for (int k = 0; k < positions.length; k++) {
-                    wrapper.writePosition(positions[k]);
+                    try {
+                        wrapper.writePosition(positions[k]);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     if(positions[k].isBallMoving())
                         allStopped = false;
                 }

@@ -3,7 +3,6 @@ import java.util.Objects;
 public class Position {
     private Ball ball;
     private Table table;
-    private long tsLong;
     private float ts;
     private Versor velVersor;
     private float velScalar;
@@ -15,7 +14,6 @@ public class Position {
         this.ball = ball;
         this.table = table;
         this.ts = ts;
-        this.tsLong = ts;
         this.x = x;
         this.y = y;
         this.velVersor = new Versor(0f, 0f);
@@ -44,7 +42,7 @@ public class Position {
     }
 
     public long getTimestamp() {
-        return tsLong;
+        return (long) (ts*1000f);
     }
 
     public void impactWall(String wall){
@@ -65,7 +63,6 @@ public class Position {
         }
 
         this.ts = ts + deltaTime;
-        this.tsLong = (long) ts;
 
         if(isBallMoving())
             System.out.println("to "+ this);
