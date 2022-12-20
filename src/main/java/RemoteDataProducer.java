@@ -43,4 +43,9 @@ public class RemoteDataProducer implements BilliardDataProducer{
     public void close() {
         influxDBClient.close();
     }
+
+    @Override
+    public void setStartTime(long startTime) {
+
+    }
 }

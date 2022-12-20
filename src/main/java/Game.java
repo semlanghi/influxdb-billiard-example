@@ -12,6 +12,7 @@ public class Game {
 
     public static final int COLLISION_THRESHOLD = 3;
     public static final float MAX_STRENGTH = 30f;
+    private final long startTime;
     private Position[] positions;
     private Table table;
     private BilliardDataProducer wrapper;
@@ -21,6 +22,8 @@ public class Game {
         this.table = table;
         this.positions = positions;
         this.wrapper = dataProducer;
+        this.startTime = System.nanoTime();
+        this.wrapper.setStartTime(startTime);
         try {
             this.groundTruthFile = new FileWriter("/Users/samuelelanghi/Documents/projects/influxdb-billiard-example/src/main/resources/ground-truth-table-1.txt");
         } catch (IOException e) {
@@ -139,7 +142,7 @@ public class Game {
             positions[ball].push(new Versor(xTmp/denom, yTmp/denom), strength);
 
             try {
-                wrapper.writeTurn(positions[ball].getBall(), positions[ball].getTable(), positions[ball].getTimestamp());
+                wrapper.writeTurn(positions[ball].getBall(), positions[ball].getTable(), positions[ball].getTimestampNano());
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -158,7 +161,7 @@ public class Game {
                         Point point = Point.measurement("collision")
                                 .addField("object1", positions[j].getBall().color)
                                 .addField("object2", wallX)
-                                .time(positions[j].getTimestamp(), WritePrecision.MS);
+                                .time(positions[j].getTimestampNano()+startTime, WritePrecision.NS);
                         try {
                             groundTruthFile.write(point.toLineProtocol()+"\n");
                             groundTruthFile.flush();
@@ -172,7 +175,7 @@ public class Game {
                         Point point = Point.measurement("collision")
                                 .addField("object1", positions[j].getBall().color)
                                 .addField("object2", wallY)
-                                .time(positions[j].getTimestamp(), WritePrecision.MS);
+                                .time(positions[j].getTimestampNano()+startTime, WritePrecision.NS);
                         try {
                             groundTruthFile.write(point.toLineProtocol()+"\n");
                             groundTruthFile.flush();
@@ -189,7 +192,7 @@ public class Game {
                                 Point point = Point.measurement("collision")
                                         .addField("object1", positions[j].getBall().color)
                                         .addField("object2", positions[k].getBall().color)
-                                        .time(positions[j].getTimestamp(), WritePrecision.MS);
+                                        .time(positions[j].getTimestampNano()+startTime, WritePrecision.NS);
                                 try {
                                     groundTruthFile.write(point.toLineProtocol()+"\n");
                                     groundTruthFile.flush();

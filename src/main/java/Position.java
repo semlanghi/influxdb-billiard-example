@@ -45,6 +45,10 @@ public class Position {
         return (long) (ts*1000f);
     }
 
+    public long getTimestampNano() {
+        return (long) (ts*1000000000f);
+    }
+
     public void impactWall(String wall){
         velVersor.impactWall(wall);
     }

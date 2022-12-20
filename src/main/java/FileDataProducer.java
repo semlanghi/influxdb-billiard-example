@@ -8,9 +8,11 @@ import java.io.IOException;
 public class FileDataProducer implements BilliardDataProducer{
 
     private final FileWriter fileWriter;
+    private long startTime;
 
     public FileDataProducer(File file) throws IOException {
         fileWriter = new FileWriter(file);
+        this.startTime = System.nanoTime();
     }
 
     @Override
@@ -21,7 +23,7 @@ public class FileDataProducer implements BilliardDataProducer{
                 .addTag("ball", position.getBall().color)
                 .addField("x", position.getX())
                 .addField("y", position.getY())
-                .time(position.getTimestamp(), WritePrecision.MS);
+                .time(position.getTimestampNano()+startTime, WritePrecision.NS);
 
         fileWriter.write(point.toLineProtocol()+"\n");
         fileWriter.flush();
@@ -32,7 +34,7 @@ public class FileDataProducer implements BilliardDataProducer{
         Point point = Point.measurement("turn")
                 .addTag("table", String.valueOf(table.tableId))
                 .addField("ball", ball.color)
-                .time(timestamp, WritePrecision.MS);
+                .time(timestamp+startTime, WritePrecision.NS);
 
         fileWriter.write(point.toLineProtocol()+"\n");
         fileWriter.flush();
@@ -41,5 +43,10 @@ public class FileDataProducer implements BilliardDataProducer{
     @Override
     public void close() throws IOException {
         fileWriter.close();
+    }
+
+    @Override
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
     }
 }
