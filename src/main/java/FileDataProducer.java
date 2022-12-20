@@ -12,7 +12,6 @@ public class FileDataProducer implements BilliardDataProducer{
 
     public FileDataProducer(File file) throws IOException {
         fileWriter = new FileWriter(file);
-        this.startTime = System.nanoTime();
     }
 
     @Override
